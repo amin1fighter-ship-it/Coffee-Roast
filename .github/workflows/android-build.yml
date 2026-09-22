@@ -1,39 +1,28 @@
-name: Build Coffee Roast from Zip
+name: Build Android APK from Zip
 
 on:
   push:
-    branches: [ "main", "master" ]
-  pull_request:
     branches: [ "main", "master" ]
   workflow_dispatch:
 
 jobs:
   build:
-    name: Unzip & Build Android APK
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Extract Project Files from Zip
+      - name: Extract Project Zip
         run: |
-          ZIP_FILE=$(ls *.zip 2>/dev/null | head -n 1)
+          # پیدا کردن فایل زیپ داخل مخزن و باز کردن آن
+          ZIP_FILE=$(find . -maxdepth 1 -name "*.zip" | head -n 1)
           if [ -n "$ZIP_FILE" ]; then
-            echo "Found zip file: $ZIP_FILE. Extracting and overwriting root..."
-            mkdir -p /tmp/extracted
-            unzip -o "$ZIP_FILE" -d /tmp/extracted
-            
-            PROJ_DIR=$(find /tmp/extracted -name "settings.gradle.kts" -exec dirname {} \;)
-            if [ -n "$PROJ_DIR" ]; then
-              echo "Moving extracted project files from $PROJ_DIR to workspace root..."
-              cp -r "$PROJ_DIR"/* .
-            else
-              cp -r /tmp/extracted/* .
-            fi
-            rm -rf /tmp/extracted
+            echo "Found zip: $ZIP_FILE"
+            unzip -o "$ZIP_FILE" -d extracted_project
+            # انتقال محتویات به ریشه پروژه
+            rsync -av extracted_project/ ./
           else
-            echo "No zip file found. Proceeding with repository files..."
+            echo "No zip file found, using standard structure."
           fi
 
       - name: Set up JDK 17
@@ -44,32 +33,14 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.7"
 
-      - name: Accept Android SDK Licenses
-        run: |
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-
-      - name: Build Debug & Release APK
+      - name: Build APK
         run: |
           chmod +x gradlew || true
-          if [ -f "./gradlew" ]; then
-            ./gradlew assembleDebug assembleRelease --stacktrace
-          else
-            gradle assembleDebug assembleRelease --stacktrace
-          fi
+          ./gradlew assembleDebug --stacktrace
 
-      - name: Upload Debug APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: CoffeeRoast-Debug-APK
           path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: warn
-
-      - name: Upload Release APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: CoffeeRoast-Release-APK
-          path: app/build/outputs/apk/release/app-release.apk
-          if-no-files-found: warn
