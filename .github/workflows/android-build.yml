@@ -3,23 +3,47 @@ name: Build Android APK
 on:
   push:
     branches: ["main", "master"]
-
-  pull_request:
-    branches: ["main", "master"]
-
   workflow_dispatch:
-
-permissions:
-  contents: read
 
 jobs:
   build:
-    name: Build Debug APK
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout source code
+      - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Extract Coffee Roast Project
+        run: |
+          set -e
+
+          ZIP_FILE="CoffeeRoast-v2.4.1-ProductionBuild.zip"
+
+          if [ ! -f "$ZIP_FILE" ]; then
+            echo "ERROR: $ZIP_FILE not found"
+            exit 1
+          fi
+
+          mkdir -p extracted_project
+          unzip -q "$ZIP_FILE" -d extracted_project
+
+          if [ ! -f "extracted_project/settings.gradle.kts" ]; then
+            echo "ERROR: settings.gradle.kts not found"
+            unzip -l "$ZIP_FILE"
+            exit 1
+          fi
+
+          cp -a extracted_project/. ./
+
+          rm -rf extracted_project
+          rm -f "$ZIP_FILE"
+
+          echo "Project root:"
+          ls -la
+
+          test -f settings.gradle.kts
+          test -f build.gradle.kts
+          test -f app/build.gradle.kts
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -36,7 +60,7 @@ jobs:
         run: |
           gradle --no-daemon assembleDebug --stacktrace
 
-      - name: Upload Debug APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: CoffeeRoast-debug
