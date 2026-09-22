@@ -9,20 +9,30 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Extract Project Zip
+      - name: Extract and Align Project from Zip
         run: |
           ZIP_FILE=$(find . -maxdepth 1 -name "*.zip" | head -n 1)
           if [ -n "$ZIP_FILE" ]; then
-            echo "Found zip: $ZIP_FILE"
-            mkdir -p extracted_project
-            unzip -o "$ZIP_FILE" -d extracted_project
-            # انتقال دقیق محتویات به ریشه اصلی پروژه و حذف پوشه موقت
-            shopt -s dotglob
-            mv extracted_project/* ./
-            rm -rf extracted_project
+            echo "Found zip file: $ZIP_FILE"
+            mkdir -p unzipped_src
+            unzip -q "$ZIP_FILE" -d unzipped_src
+            
+            # پیدا کردن هوشمند محل دقیق فایل gradlew داخل زیپ
+            GRADLEW_PATH=$(find unzipped_src -name "gradlew" -type f | head -n 1)
+            if [ -n "$GRADLEW_PATH" ]; then
+              PROJECT_DIR=$(dirname "$GRADLEW_PATH")
+              echo "Project root found at: $PROJECT_DIR"
+              shopt -s dotglob
+              cp -r "$PROJECT_DIR"/* ./
+            else
+              echo "Error: gradlew not found inside zip!"
+              exit 1
+            fi
+            
+            rm -rf unzipped_src
             rm -f "$ZIP_FILE"
           else
             echo "No zip file found."
@@ -37,13 +47,14 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build APK
-        run: |
-          chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
 
-      - name: Upload APK
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CoffeeRoast-Debug-APK
+          name: app-debug
           path: app/build/outputs/apk/debug/app-debug.apk
