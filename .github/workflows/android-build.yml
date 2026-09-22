@@ -14,15 +14,18 @@ jobs:
 
       - name: Extract Project Zip
         run: |
-          # پیدا کردن فایل زیپ داخل مخزن و باز کردن آن
           ZIP_FILE=$(find . -maxdepth 1 -name "*.zip" | head -n 1)
           if [ -n "$ZIP_FILE" ]; then
             echo "Found zip: $ZIP_FILE"
+            mkdir -p extracted_project
             unzip -o "$ZIP_FILE" -d extracted_project
-            # انتقال محتویات به ریشه پروژه
-            rsync -av extracted_project/ ./
+            # انتقال دقیق محتویات به ریشه اصلی پروژه و حذف پوشه موقت
+            shopt -s dotglob
+            mv extracted_project/* ./
+            rm -rf extracted_project
+            rm -f "$ZIP_FILE"
           else
-            echo "No zip file found, using standard structure."
+            echo "No zip file found."
           fi
 
       - name: Set up JDK 17
@@ -36,7 +39,7 @@ jobs:
 
       - name: Build APK
         run: |
-          chmod +x gradlew || true
+          chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK
