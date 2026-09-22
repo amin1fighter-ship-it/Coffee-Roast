@@ -1,26 +1,30 @@
-name: Build Android APK
+name: Android Build
 
 on:
   push:
-    branches: ["main", "master"]
+    branches: [ "main", "master" ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  build:
+  build-release:
+    name: Build Release APK
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Extract Coffee Roast Project
         run: |
           set -e
-
-          ZIP_FILE="CoffeeRoast-v2.4.1-ProductionBuild.zip"
+          ZIP_FILE="CoffeeRoast-source.zip"
 
           if [ ! -f "$ZIP_FILE" ]; then
-            echo "ERROR: $ZIP_FILE not found"
+            echo "ERROR: $ZIP_FILE not found in repo root"
+            ls -la
             exit 1
           fi
 
@@ -28,18 +32,13 @@ jobs:
           unzip -q "$ZIP_FILE" -d extracted_project
 
           if [ ! -f "extracted_project/settings.gradle.kts" ]; then
-            echo "ERROR: settings.gradle.kts not found"
-            unzip -l "$ZIP_FILE"
+            echo "ERROR: settings.gradle.kts not found after extraction"
+            find extracted_project -maxdepth 3
             exit 1
           fi
 
           cp -a extracted_project/. ./
-
           rm -rf extracted_project
-          rm -f "$ZIP_FILE"
-
-          echo "Project root:"
-          ls -la
 
           test -f settings.gradle.kts
           test -f build.gradle.kts
@@ -54,15 +53,26 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "8.7"
+          gradle-version: "8.9"
 
-      - name: Build Debug APK
+      - name: Decode signing keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          gradle --no-daemon assembleDebug --stacktrace
+          test -n "$KEYSTORE_BASE64" || (echo "Missing KEYSTORE_BASE64 secret" && exit 1)
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
 
-      - name: Upload APK
+      - name: Build signed release APK
+        env:
+          KEYSTORE_PATH: ${{ runner.temp }}/release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: gradle --no-daemon assembleRelease --stacktrace
+
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CoffeeRoast-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: CoffeeRoast-release-apk
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
