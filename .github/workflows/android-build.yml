@@ -12,34 +12,27 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Inspect and Extract Zip
+      - name: Extract Project Zip
         run: |
           ZIP_FILE=$(find . -maxdepth 1 -name "*.zip" | head -n 1)
           if [ -n "$ZIP_FILE" ]; then
-            echo "=== Listing contents of $ZIP_FILE ==="
-            unzip -l "$ZIP_FILE"
-            
+            echo "Extracting $ZIP_FILE..."
             mkdir -p unzipped_src
             unzip -q "$ZIP_FILE" -d unzipped_src
             
-            # جستجوی هوشمندانه برای یافتن gradlew
-            GRADLEW_PATH=$(find unzipped_src -name "gradlew" -type f | head -n 1)
-            if [ -n "$GRADLEW_PATH" ]; then
-              PROJECT_DIR=$(dirname "$GRADLEW_PATH")
+            # پیدا کردن پوشه‌ای که تنظیمات پروژه داخلش هست
+            PROJECT_DIR=$(find unzipped_src -name "build.gradle.kts" -type f | head -n 1 | xargs dirname)
+            if [ -n "$PROJECT_DIR" ]; then
               echo "Project root found at: $PROJECT_DIR"
               shopt -s dotglob
               cp -r "$PROJECT_DIR"/* ./
             else
-              echo "ERROR: gradlew file not found anywhere inside the zip!"
-              echo "Here is the list of extracted files/folders:"
-              find unzipped_src -maxdepth 3
+              echo "ERROR: build.gradle.kts not found!"
               exit 1
             fi
             
             rm -rf unzipped_src
             rm -f "$ZIP_FILE"
-          else
-            echo "No zip file found."
           fi
 
       - name: Set up JDK 17
@@ -48,14 +41,8 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+      - name: Build with Gradle CLI
+        run: gradle assembleDebug --stacktrace
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
