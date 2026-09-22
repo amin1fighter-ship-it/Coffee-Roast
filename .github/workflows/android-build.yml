@@ -16,12 +16,22 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Unzip Project Archive
+      - name: Extract Project Files from Zip
         run: |
           ZIP_FILE=$(ls *.zip 2>/dev/null | head -n 1)
           if [ -n "$ZIP_FILE" ]; then
-            echo "Found zip file: $ZIP_FILE. Extracting..."
-            unzip -o "$ZIP_FILE"
+            echo "Found zip file: $ZIP_FILE. Extracting and overwriting root..."
+            mkdir -p /tmp/extracted
+            unzip -o "$ZIP_FILE" -d /tmp/extracted
+            
+            PROJ_DIR=$(find /tmp/extracted -name "settings.gradle.kts" -exec dirname {} \;)
+            if [ -n "$PROJ_DIR" ]; then
+              echo "Moving extracted project files from $PROJ_DIR to workspace root..."
+              cp -r "$PROJ_DIR"/* .
+            else
+              cp -r /tmp/extracted/* .
+            fi
+            rm -rf /tmp/extracted
           else
             echo "No zip file found. Proceeding with repository files..."
           fi
