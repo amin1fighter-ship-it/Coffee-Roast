@@ -12,15 +12,17 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Extract and Align Project from Zip
+      - name: Inspect and Extract Zip
         run: |
           ZIP_FILE=$(find . -maxdepth 1 -name "*.zip" | head -n 1)
           if [ -n "$ZIP_FILE" ]; then
-            echo "Found zip file: $ZIP_FILE"
+            echo "=== Listing contents of $ZIP_FILE ==="
+            unzip -l "$ZIP_FILE"
+            
             mkdir -p unzipped_src
             unzip -q "$ZIP_FILE" -d unzipped_src
             
-            # پیدا کردن هوشمند محل دقیق فایل gradlew داخل زیپ
+            # جستجوی هوشمندانه برای یافتن gradlew
             GRADLEW_PATH=$(find unzipped_src -name "gradlew" -type f | head -n 1)
             if [ -n "$GRADLEW_PATH" ]; then
               PROJECT_DIR=$(dirname "$GRADLEW_PATH")
@@ -28,7 +30,9 @@ jobs:
               shopt -s dotglob
               cp -r "$PROJECT_DIR"/* ./
             else
-              echo "Error: gradlew not found inside zip!"
+              echo "ERROR: gradlew file not found anywhere inside the zip!"
+              echo "Here is the list of extracted files/folders:"
+              find unzipped_src -maxdepth 3
               exit 1
             fi
             
