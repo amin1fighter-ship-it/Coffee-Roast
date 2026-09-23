@@ -21,7 +21,7 @@ jobs:
         run: |
           set -e
 
-          ZIP_FILE="CoffeeRoast-v0.3.0-source.zip"
+          ZIP_FILE="CoffeeRoast-source.zip"
 
           if [ ! -f "$ZIP_FILE" ]; then
             echo "ERROR: $ZIP_FILE not found in repo root"
