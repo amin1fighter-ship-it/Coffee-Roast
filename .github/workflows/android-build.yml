@@ -21,7 +21,7 @@ jobs:
         run: |
           set -e
 
-          ZIP_FILE="CoffeeRoast-v0.4.11-source.zip"
+          ZIP_FILE="CoffeeRoast-v0.4.12-source.zip"
 
           if [ ! -f "$ZIP_FILE" ]; then
             echo "ERROR: $ZIP_FILE not found in repo root"
@@ -123,6 +123,6 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CoffeeRoast-v0.4.11-release
+          name: CoffeeRoast-v0.4.12-release
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
